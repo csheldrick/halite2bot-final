@@ -1,1 +1,1 @@
-My final submission for the Halite competition. Final rank: 269, ML League Rank: 11. 
+My final submission for the Halite competition. Final rank: 269, ML League Rank: 11. Added unfinished RL and Gaussian based bots under rl_bot
