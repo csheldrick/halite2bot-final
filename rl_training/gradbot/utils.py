@@ -66,7 +66,7 @@ def timeit(method):
     return timed
 
 
-def _get_epsilon(*args):
+def _calculate_epsilon(*args):
     xi = np.asarray([np.asarray(a, dtype=np.float_).flatten()
                      for a in args[:-1]])
     N = xi.shape[-1]
@@ -79,7 +79,7 @@ def _get_epsilon(*args):
     return epsilon
 
 
-def get_epsilon(game_map, make=True):
+def get_gx(game_map, make=True):
     w = game_map.width
     h = game_map.height
     r = []
@@ -121,29 +121,38 @@ def get_epsilon(game_map, make=True):
         xs = np.concatenate([xs, esX])
         ys = np.concatenate([ys, esY])
         zs = np.concatenate([zs, esZ])
+
+    
     x, y, z = make_edges(gridX, gridY)
     xs = np.concatenate([xs, x])
     ys = np.concatenate([ys, y])
     zs = np.concatenate([zs, z])
-    allx = xs
-    ally = ys
-    allz = zs
-    eps = _get_epsilon(allx, ally, allz)
-    r.append(eps)
-    # r.append(allx)
-    # r.append(ally)
-    # r.append(allz)
+    r.append(o)
+    # to get data-fied objects back
+    r.append([xs,ys,zs])
+
     if make:
-        F = make_rbf(allx, ally, allz, function='gaussian', smooth=-5, epsilon=17)  # smooth=-5 epsilon=17
-        r.append(F)
-        Z = make_z(F, gridX, gridY)
-        r.append(Z)
+        Func = Rbf(xs, ys, zs, function='gaussian', smooth=-5, epsilon=17)
+        r.append(Func)
+        gridZ = Func(gridX, gridY)
+        r.append(gridZ)
+	# r = [o, [xs, ys, zs], Func, gridZ]
+    else:
+        # r = [o, [xs, ys, zs]]
+        pass
+            
     return r
 
 
-def get_gradient(my_ships, all_objects, game_map):
-    eps = get_epsilon(game_map, make=False)[0]
+def get_gradient(my_ships, game_map, full_return=False):
+    gx = get_gx(game_map, make=full_return)
+    if full_return:
+        graph_objs, all_axes, Func, gridZ = gx
+    else:
+        graph_objs, all_axes = gx
+    eps = _calculate_epsilon(*all_axes)
     my_id = my_ships[0].owner
+    all_objects = game_map.all_ships() + game_map.all_planets()
     gradU, gradV = np.zeros(len(my_ships)), np.zeros(len(my_ships))
     for idx, s in enumerate(my_ships):
         x = int(s.x)
@@ -165,6 +174,8 @@ def get_gradient(my_ships, all_objects, game_map):
             gradY += o.w * o.g * f * (y - o.y)
         gradU[idx] = gradX
         gradV[idx] = gradY
+    if full_return:
+        return gradU, gradV, graph_objs, Func, gridZ
     return gradU, gradV
 
 
@@ -306,15 +317,15 @@ def plotter(Z, ship, objects, turn, pid, width, height):
     y = np.arange(0, height)
     X, Y = np.meshgrid(x, y, indexing='ij')
     U, V = np.gradient(Z, axis=(0, 1))
-    sx, sy = ship[0], ship[1]
-    # xx = X[sx, sy]
-    # yy = Y[sx, sy]
-    # uu = -U[sx, sy]
-    # vv = -V[sx, sy]
-    # zz = Z[sx, sy]
+    sx, sy = int(ship[0]), int(ship[1])
+    #xx = X[sx, sy]
+    #yy = Y[sx, sy]
+    #uu = -U[sx, sy]
+    #vv = -V[sx, sy]
+    #zz = Z[sx, sy]
     ships = [s for s in objects if s[-1] == 'ship']
-    # planets = [s for s in o if s[-1] == 'planet']
-    items = ships  # + planets
+    #planets = [s for s in objects if s[-1] == 'planet']
+    items = ships #+ planets
     Xpts, Ypts, Upts, Vpts, Zpts = np.zeros(len(items)), np.zeros(len(items)), np.zeros(len(items)), np.zeros(
         len(items)), np.zeros(len(items))
     for i, l in enumerate(items):
@@ -323,7 +334,7 @@ def plotter(Z, ship, objects, turn, pid, width, height):
         Upts[i] = -U[l[0], l[1]]
         Vpts[i] = -V[l[0], l[1]]
         Zpts[i] = Z[l[0], l[1]]
-    # skip = (slice(None, None, 3), slice(None, None, 3))
+    #skip = (slice(None, None, 3), slice(None, None, 3))
     ax3 = af.add_subplot(212, projection='3d')
     ax3.set_xlim(0, width)
     ax3.set_ylim(0, height)
@@ -333,9 +344,11 @@ def plotter(Z, ship, objects, turn, pid, width, height):
     ax2.set_xlim(0, width)
     ax2.set_ylim(0, height)
     ax2.contour(X, Y, Z, cmap='gist_heat')
-    # ax2.streamplot(X.T,Y.T,-U.T,-V.T,cmap="magma")
-    # ax2.quiver(Xpts,Ypts,Upts,Vpts, cmap='gist_heat', pivot='t	ail',alpha=.5)
-    # ax2.quiver(X[skip],Y[skip],-U[skip],-V[skip],Z[skip],alpha=.5,cmap='gist_heat', pivot='tail',angles='xy',scale_units='xy')
+    # gaussian streams
+    #ax2.streamplot(X.T,Y.T,-U.T,-V.T,cmap="magma")
+    # ship angles
+    ax2.quiver(Xpts,Ypts,Upts,Vpts, cmap='gist_heat', pivot='tail',alpha=.5)
+    # ax2.quiver(X[skip], Y[skip],-U[skip],-V[skip],Z[skip],alpha=.5,cmap='gist_heat',pivot='tail',angles='xy',scale_units='xy')
     for l in objects:
         if sx == l[0] and sy == l[1]:
             art = Circle((sx, sy), l[3].radius, color='blue')
@@ -353,6 +366,8 @@ def plotter(Z, ship, objects, turn, pid, width, height):
                 ax2.add_artist(art)
                 ax2.text(l[0], l[1], l[3].id, color=l[2] if l[2] is 'red' else 'blue')
 
-    plt.savefig("grads/last-{}.png".format(pid))
-    plt.clf()
+    plt.savefig("grads/{}-{}.png".format(pid, turn))
+    ax2.clear()
+    ax3.clear()
+    af.clear()
     plt.close()

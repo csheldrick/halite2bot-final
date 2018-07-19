@@ -1,2 +1,2 @@
-from .gradbot import Bot
+import Bot
 Bot.Bot(name="Gradbot").play()

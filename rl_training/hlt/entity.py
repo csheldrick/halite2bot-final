@@ -271,7 +271,7 @@ class Ship(Entity):
         """
         return "u {}".format(self.id)
 
-    def navigate(self, target, game_map, speed, avoid_obstacles=True, max_corrections=200, angular_step=1,
+    def navigate(self, target, game_map, speed, avoid_obstacles=True, max_corrections=100, angular_step=2,
                  ignore_ships=False, ignore_planets=False):
         """
         Move a ship to a specific target position (Entity). It is recommended to place the position

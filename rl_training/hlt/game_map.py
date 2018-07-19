@@ -80,6 +80,9 @@ class Map:
             result.setdefault(entity.calculate_distance_between(foreign_entity), []).append(foreign_entity)
         return result
 
+    def all_ships(self):
+        return self._all_ships()
+
     def _link(self):
         """
         Updates all the entities with the correct ship and planet objects

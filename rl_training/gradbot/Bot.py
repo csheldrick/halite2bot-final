@@ -1,5 +1,5 @@
-from .grads import play_game
-from . import hlt
+from grads import play_game
+import hlt
 import time
 
 
